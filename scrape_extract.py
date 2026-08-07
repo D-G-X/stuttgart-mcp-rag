@@ -96,22 +96,41 @@ def _split_sections(body: str) -> list[tuple[str, str]]:
     return sections
 
 
-def consolidate_office_listings(body: str) -> str:
+def split_office_listings(body: str) -> tuple[str, str | None]:
     """Merge stuttgart.de's per-office fragments (Address & contact
     information > Address, > Fax[es]; How to find us > Address; Opening
     hours -- up to 7 headings per office) into one clean '## Bürgerbüro X'
-    section per office, carrying address/fax/hours together.
+    section per office, then split those out of the page body entirely.
 
-    Without this, a single office-directory page fragments into ~7 chunks per
-    office (96 of 114 chunks in this corpus come from one page), each too
-    short and disconnected to embed well, while drowning out the small number
-    of chunks that hold the actual Anmeldung procedure. A no-op on pages with
-    no office-directory structure -- office_groups stays empty and the body
-    round-trips unchanged (aside from whitespace).
+    Returns (procedural_body, office_directory_body_or_None).
+
+    Two separate fixes bundled here, found via retrieval testing rather than
+    assumed up front:
+
+    1. Fragmentation: a single office-directory page fragments into ~7 chunks
+       per office (96 of 114 chunks in this corpus came from one page), each
+       too short and disconnected to embed well.
+
+    2. Even after merging those into one chunk per office (the first fix),
+       office chunks still outranked the real Anmeldung procedure content in
+       every retrieval test -- because every chunk on the page, procedural or
+       not, was prefixed with the same page title ("Register residence - as
+       main residence") AND every office chunk repeats a literal "Address:"
+       field, so office chunks lexically collide hard with queries like
+       "register my address" despite being semantically unrelated (an
+       office's mailing address vs. the concept of registering your own).
+       Splitting the office directory into its own document with its own
+       title and topic -- the same separation the hand-picked corpus already
+       had by construction (01_anmeldung.md vs. 06_offices.md) -- removes
+       that false association instead of trying to out-rank it.
+
+    A no-op (office_directory_body is None) on pages with no office-directory
+    structure -- office_groups stays empty and procedural_body round-trips
+    the original content unchanged (aside from whitespace).
     """
     sections = _split_sections(body)
     if not sections:
-        return body
+        return body, None
     first_heading_pos = body.find(f"## {sections[0][0]}")
     preamble = body[:first_heading_pos]
 
@@ -161,7 +180,9 @@ def consolidate_office_listings(body: str) -> str:
         if lines:
             office_blocks.append(f"## Bürgerbüro {name}\n" + "\n".join(lines) + "\n\n")
 
-    return preamble + "".join(kept_parts) + "".join(office_blocks)
+    procedural_body = preamble + "".join(kept_parts)
+    office_directory_body = "".join(office_blocks) if office_blocks else None
+    return procedural_body, office_directory_body
 
 
 def latest_raw_snapshot(url: str) -> Path:
@@ -200,12 +221,33 @@ def extract_one(source: Source) -> Path:
     ).strip()
 
     flattened = flatten_headings(f"# {title}\n\n{body_md}")
-    flattened = consolidate_office_listings(flattened)
-    doc = f"---\n{frontmatter}\n---\n\n{flattened}\n"
+    procedural_body, office_directory_body = split_office_listings(flattened)
+    doc = f"---\n{frontmatter}\n---\n\n{procedural_body}\n"
 
     SCRAPED_DIR.mkdir(parents=True, exist_ok=True)
     out_path = SCRAPED_DIR / f"{_slugify(source.url)}.md"
     out_path.write_text(doc, encoding="utf-8")
+
+    if office_directory_body:
+        # Deliberately its own title/topic, not derived from the parent
+        # page's title -- see split_office_listings' docstring for why
+        # sharing a title with the procedural content caused office chunks
+        # to false-match "register my address"-style queries.
+        office_title = "Bürgerbüro (Citizens' Office) Locations in Stuttgart"
+        office_frontmatter = yaml.safe_dump(
+            {
+                "title": office_title,
+                "source": source.url,
+                "topic": "offices",
+                "last_checked": date.today().isoformat(),
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ).strip()
+        office_doc = f"---\n{office_frontmatter}\n---\n\n# {office_title}\n\n{office_directory_body}\n"
+        office_path = SCRAPED_DIR / f"{_slugify(source.url)}-offices.md"
+        office_path.write_text(office_doc, encoding="utf-8")
+
     return out_path
 
 
