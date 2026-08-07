@@ -17,11 +17,18 @@ def get_client() -> QdrantClient:
 
 
 def ensure_collection(client: QdrantClient) -> None:
-    if not client.collection_exists(COLLECTION_NAME):
-        client.create_collection(
-            collection_name=COLLECTION_NAME,
-            vectors_config=VectorParams(size=EMBEDDING_DIM, distance=Distance.COSINE),
-        )
+    """Rebuild the collection from scratch on every run.
+
+    We recreate rather than reuse: upsert only adds/updates points by ID, so a
+    section removed or renamed in a source doc would otherwise leave an orphaned,
+    stale point behind. Full rebuild keeps Qdrant in exact sync with data/docs/.
+    """
+    if client.collection_exists(COLLECTION_NAME):
+        client.delete_collection(COLLECTION_NAME)
+    client.create_collection(
+        collection_name=COLLECTION_NAME,
+        vectors_config=VectorParams(size=EMBEDDING_DIM, distance=Distance.COSINE),
+    )
 
 
 def chunk_id(chunk: Chunk) -> str:

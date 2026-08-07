@@ -14,12 +14,7 @@ Non-EU students applying for a German student visa must prove they can cover the
 - You deposit a set amount covering one year of living expenses before your visa interview.
 - The account is "blocked" — you cannot withdraw the full sum at once. After arriving in Germany and activating the account, you can withdraw a fixed amount **per month** (1/12 of the total).
 - The required amount is recalculated periodically based on estimated student living costs (linked to BAföG rates).
-
-## As of 2026
-- Required deposit: **€11,904**
-- Maximum monthly withdrawal: **€992**
-
-*(Always verify the current figure before applying — this amount is adjusted periodically by German authorities.)*
+- **As of 2026: required deposit is €11,904, with a maximum monthly withdrawal of €992.** *(Always verify the current figure before applying — this amount is adjusted periodically by German authorities.)*
 
 ## Alternatives to a blocked account
 - A scholarship certificate proving sufficient funding
