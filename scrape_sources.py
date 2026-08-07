@@ -59,11 +59,13 @@ SOURCES: list[Source] = [
         url="https://www.uni-stuttgart.de/en/university/international/service/",
         topic="university_enrollment",
     ),
-    # offices
-    Source(
-        url="https://www.stuttgart.de/en/organigramm/leistungen/wohnsitz-anmelden-als-hauptwohnsitz",
-        topic="offices",
-    ),
+    # offices: no separate Source entry needed -- scrape_extract.py's
+    # split_office_listings() automatically emits a second
+    # "*-offices.md" doc (topic="offices") from the anmeldung page above as
+    # a side effect. An explicit duplicate Source here would just get
+    # dropped by unique_sources()'s dedup anyway (it did, silently, before
+    # this was noticed -- see split_office_listings' docstring).
+
     # oeffnungszeitenbuch.de dropped 2026-08-07: its real content (address,
     # phone, hours) isn't present in the static HTML at all -- only SEO nav
     # chrome is -- and every office it covers is already listed on the

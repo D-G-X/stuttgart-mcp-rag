@@ -2,7 +2,7 @@ from mcp.server import MCPServer
 
 from checklists import TOPIC_CHECKLISTS, TOPIC_SOURCES
 from embeddings import embed_texts
-from vectorstore import COLLECTION_NAME, get_client
+from vectorstore import SCRAPED_COLLECTION_NAME, get_client
 
 mcp = MCPServer("stuttgart-bureaucracy")
 
@@ -23,7 +23,7 @@ def search_bureaucracy_docs(query: str, top_k: int = 3) -> str:
     vector = embed_texts([query])[0]
     client = get_client()
     results = client.query_points(
-        collection_name=COLLECTION_NAME,
+        collection_name=SCRAPED_COLLECTION_NAME,
         query=vector,
         limit=top_k,
     ).points
