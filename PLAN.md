@@ -109,8 +109,50 @@ You'll do Path A first to validate retrieval quality quickly, then Path B to und
 - Tune chunking/top-k based on real questions that go wrong.
 - Add source citations clearly in responses (this matters a lot for bureaucratic trust — wrong info about visas has real consequences, so always cite and encourage the user to verify with the official office).
 
-### Phase 7 — Scraping (later, separate planning pass)
-- Once the hand-picked prototype works well, plan a scraper for official sources (Stuttgart city site, Ausländerbehörde, university International Office) with a refresh/re-ingestion pipeline. Will need attention to site ToS, change detection, and re-embedding on updates. We'll plan this in detail once Phase 6 is solid — no need to design it now.
+### Phase 7 — Scraping & refresh pipeline
+
+Goal: replace the hand-picked `data/docs/*.md` corpus with an automated,
+periodically-refreshed pipeline over the same official sources, without
+regressing the retrieval quality Phase 6 achieved. Bureaucratic info being
+wrong has real consequences, so this phase optimizes for *safe* freshness
+(review before publish) over fully autonomous auto-updates.
+
+**7.1 — Source inventory & legal check**
+- Start from the exact pages already hand-copied — they're listed in `checklists.py`'s `TOPIC_SOURCES` (Anmeldung, Aufenthaltstitel, Sperrkonto, health insurance, university enrollment, offices). Scraping these first gives a parity check against known-good content before expanding breadth.
+- Check `robots.txt` and ToS for `stuttgart.de` and `uni-stuttgart.de` before writing a single fetcher. Note any crawl-rate or caching requirements.
+
+**7.2 — Fetch layer**
+- Plain `requests`/`httpx` GET, polite `User-Agent`, rate-limited (e.g. 1 req/sec) with exponential backoff on errors. These are static government pages — verify none need JS rendering before reaching for Playwright.
+- Persist raw HTML snapshots (e.g. `data/raw/<page>/<date>.html`) before any extraction. Never scrape straight into chunks — keep the source for auditing and re-processing if extraction logic changes later.
+
+**7.3 — Extraction & normalization**
+- HTML → clean text via `trafilatura` or `readability-lxml`, plus manual boilerplate rules (nav/footer/cookie banners).
+- Reuse `chunking.py`'s existing contract rather than rewriting it: emit the same frontmatter fields (`title`, `topic`, `source`, `last_checked`) and `## heading`-delimited sections `HEADING_RE`/`parse_doc()` already expect, so `chunk_corpus()` keeps working unmodified on scraped output.
+
+**7.4 — Change detection**
+- Store a content hash per page/section alongside `last_checked`.
+- Each scrape run: unchanged hash → skip re-embedding (saves compute, and keeps `vectorstore.py`'s stable `uuid5(title|section)` chunk IDs from churning). Changed hash → flag for review rather than auto-publishing — surface a diff for a human to confirm before it reaches the live collection.
+
+**7.5 — Re-ingestion pipeline**
+- Extend `ingest.py` (or a new `scrape_ingest.py`) with: fetch → extract → diff-check → chunk → embed → upsert only new/changed chunks.
+- `vectorstore.ensure_collection()` currently deletes and rebuilds the whole collection on every run — fine for a manual full-corpus reload, but wrong for incremental scraped updates (it would wipe everything each run). Switch scraped ingestion to targeted `upsert` + explicit delete of removed sections instead of full rebuild.
+- If rebuild-triggered downtime ever matters in practice, revisit with a collection-alias blue-green swap (build new collection, swap alias, drop old).
+
+**7.6 — Scheduling**
+- Pick a cadence (weekly is reasonable for government pages) and a mechanism — local cron, a scheduled CI workflow, or (while still prototyping) a recurring agent job.
+- Fail loudly on scrape errors (404, blocked, changed page structure) rather than silently continuing to serve stale data.
+
+**7.7 — Validation**
+- Keep a small fixed set of test questions and expected source pages; after each ingest run, use `query.py` to confirm retrieval still surfaces the right sources. Catches silent extraction regressions (e.g. a site redesign breaking the boilerplate-stripping rules) before they reach the live tool.
+
+**7.8 — Rollout**
+- Run the scraped pipeline into a separate Qdrant collection first and compare retrieval quality against the hand-picked corpus side by side.
+- Cut `server.py` over to the scraped collection only once parity is confirmed; keep the hand-picked docs as a fallback/reference, not deleted.
+
+**Open decisions (need your input before implementing):**
+- Scope: stick to the current 6 topics, or expand breadth (more offices, more procedures)?
+- Auto-publish vs. review-gate changed pages — the plan above defaults to review-gated; confirm that's the right tradeoff for this use case.
+- Where scheduling should run (local cron vs. CI vs. hosted) depends on whether this stays a personal project or gets deployed somewhere.
 
 ---
 
