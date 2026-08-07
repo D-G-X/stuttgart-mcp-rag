@@ -8,7 +8,7 @@ last_checked: 2026-08-07
 
 # Blocked Account (Sperrkonto)
 
-Non-EU students applying for a German student visa must prove they can cover their living costs, usually by opening a **blocked account (Sperrkonto)**.
+Non-EU students applying for a German student visa must prove they can cover their living costs, usually by opening a **blocked account (Sperrkonto)**. As of 2026, the required deposit is **€11,904**, with a maximum monthly withdrawal of **€992**.
 
 ## How it works
 - You deposit a set amount covering one year of living expenses before your visa interview.

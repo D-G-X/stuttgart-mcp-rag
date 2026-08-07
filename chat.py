@@ -1,6 +1,12 @@
 # local Ollama model chat.py
 import asyncio
 
+# Tools whose output is already final, user-ready text (no synthesis needed).
+# The 8B local model unreliably reproduces tool output verbatim through a second
+# generation pass, so for these we display the result directly instead of asking
+# the model to relay it — see PLAN.md quality-pass notes for why.
+PASSTHROUGH_TOOLS = {"get_procedure_checklist"}
+
 import ollama
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -14,11 +20,15 @@ SERVER_PARAMS = StdioServerParameters(command="uv", args=["run", "python", "serv
 
 SYSTEM_PROMPT = (
     "You are a bureaucracy assistant for international students in Stuttgart. "
-    "Always call search_bureaucracy_docs before answering questions about procedures, "
-    "requirements, fees, or addresses. Answer ONLY using the retrieved text — never "
-    "estimate, round, or fill gaps from your own knowledge. If the retrieved chunks "
-    "don't contain the specific figure or fact asked for, say so explicitly and suggest "
-    "the user verify with the official source. Always cite the source title and URL."
+    "Use search_bureaucracy_docs for open-ended questions, and get_procedure_checklist "
+    "when the user wants the full step-by-step procedure for a known topic.\n\n"
+    "MOST IMPORTANT RULE: when a tool returns a result, your reply MUST reproduce that "
+    "tool result's content in full — every step, every fact, every number — word for "
+    "word. You may add a short one-sentence intro before it, but never shorten, "
+    "summarize, or drop any part of the tool result itself.\n\n"
+    "Never estimate, round, or fill gaps from your own knowledge — use only what the "
+    "tool returned. If a tool result includes a 'Source:'/'URL:' line, keep it in your "
+    "reply exactly as given; if it doesn't, do not invent one."
 )
 
 
@@ -65,6 +75,7 @@ async def run_chat():
                         print(f"\nOllama: {msg['content']}\n")
                         break
 
+                    passthrough_result = None
                     for call in msg["tool_calls"]:
                         name = call["function"]["name"]
                         args = call["function"]["arguments"]
@@ -74,6 +85,12 @@ async def run_chat():
                             c.text for c in result.content if c.type == "text"
                         )
                         messages.append({"role": "tool", "content": result_text})
+                        if name in PASSTHROUGH_TOOLS:
+                            passthrough_result = result_text
+
+                    if passthrough_result is not None:
+                        print(f"\nOllama: {passthrough_result}\n")
+                        break
 
 
 if __name__ == "__main__":
