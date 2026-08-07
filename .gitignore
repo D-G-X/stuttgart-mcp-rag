@@ -1,6 +1,9 @@
 .venv/
 .env
 qdrant_storage/
+data/raw/
+data/scraped/
+data/scraped_review/
 __pycache__/
 *.pyc
 .DS_Store

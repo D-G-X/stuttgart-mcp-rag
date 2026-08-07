@@ -1,7 +1,6 @@
 ---
 title: Office Locations for Stuttgart International Student Bureaucracy
 source: https://www.stuttgart.de/en/organigramm/leistungen/wohnsitz-anmelden-als-hauptwohnsitz
-source2: https://www.oeffnungszeitenbuch.de/filiale/Stuttgart-Buergerbuero%2520Vaihingen-275664Q.html
 topic: offices
 last_checked: 2026-08-07
 ---
@@ -14,16 +13,16 @@ Stuttgart has several district citizens' offices; register at whichever covers y
 **Closest to the university (Vaihingen campus):**
 Bürgerbüro Vaihingen
 Rathausplatz 1, 70563 Stuttgart
-Phone: 0711-21693700 · Email: buergerbueros@stuttgart.de
+Fax: +49 711 21698410
 
 Opening hours:
-- Mon: 08:30–13:00
-- Tue: 08:30–13:00, 14:00–16:00
-- Wed: 08:30–13:00 (mornings only, appointment required)
-- Thu: 08:30–13:00, 14:00–18:00
-- Fri: 08:30–13:00
+- Mon: 08:15–12:30
+- Tue: 08:15–12:30, 14:00–16:00 (afternoon by prior online appointment)
+- Wed: 08:15–12:30
+- Thu: 09:00–12:30, 14:00–18:00 (afternoon by prior online appointment)
+- Fri: 08:15–12:30
 
-*Note: Mondays and Thursday afternoons tend to be busy. Book an appointment online in advance via Stuttgart's Bürgerbüro appointment system.*
+*Note: For general questions, Germany's public administration hotline 115 (Mon–Fri, 8am–6pm) can help. Book Bürgerbüro appointments online in advance via Stuttgart's Bürgerbüro appointment system.*
 
 ## Ausländerbehörde (Immigration Office) — for residence permits/visa extension
 Amt für öffentliche Ordnung, Ausländerbehörde
