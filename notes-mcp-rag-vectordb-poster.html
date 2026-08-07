@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sketchnotes — MCP · RAG · Vector DB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f7f1e1;
+    --paper2:#f1e9d4;
+    --ink:#2b2a28;
+    --pencil:#5b5750;
+    --red:#c2452d;
+    --teal:#1f7a72;
+    --blue:#2b5b84;
+    --yellow:#f2c14e;
+    --purple:#7b5ea7;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    padding:28px;
+    background:
+      radial-gradient(circle at 20% 10%, rgba(0,0,0,0.03), transparent 40%),
+      radial-gradient(circle at 80% 90%, rgba(0,0,0,0.03), transparent 40%),
+      var(--paper);
+    font-family:'Kalam', cursive;
+    color:var(--ink);
+  }
+  .title-block{
+    text-align:center;
+    margin-bottom:22px;
+  }
+  .title-block h1{
+    font-family:'Caveat', cursive;
+    font-size:58px;
+    margin:0;
+    transform:rotate(-1deg);
+    letter-spacing:1px;
+  }
+  .title-block h1 span{
+    background:linear-gradient(180deg, transparent 60%, var(--yellow) 60%);
+    padding:0 6px;
+  }
+  .title-block p{
+    font-size:18px;
+    color:var(--pencil);
+    margin:4px 0 0;
+  }
+  .poster{
+    max-width:1300px;
+    margin:0 auto;
+  }
+  .row{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:22px;
+    margin-bottom:22px;
+  }
+  @media (max-width:1000px){ .row{grid-template-columns:1fr;} }
+
+  .card{
+    background:var(--paper2);
+    border:2.5px solid var(--ink);
+    border-radius:14px 18px 16px 20px / 18px 14px 20px 16px;
+    padding:18px 20px 20px;
+    position:relative;
+    box-shadow:4px 5px 0 rgba(0,0,0,0.08);
+  }
+  .card:nth-child(1){ transform:rotate(-0.6deg); }
+  .card:nth-child(2){ transform:rotate(0.5deg); }
+  .card:nth-child(3){ transform:rotate(-0.3deg); }
+
+  .card h2{
+    font-family:'Caveat', cursive;
+    font-size:32px;
+    margin:0 0 10px;
+    border-bottom:3px solid var(--ink);
+    display:inline-block;
+    padding-bottom:2px;
+  }
+  .tag{
+    display:inline-block;
+    font-size:13px;
+    background:var(--yellow);
+    border:1.5px solid var(--ink);
+    border-radius:20px;
+    padding:1px 10px;
+    margin-left:8px;
+    transform:rotate(-2deg);
+    vertical-align:middle;
+  }
+
+  .diagram{
+    background:var(--paper);
+    border:2px dashed var(--pencil);
+    border-radius:10px;
+    padding:12px;
+    margin:10px 0 14px;
+  }
+
+  ul{ margin:6px 0; padding-left:22px; }
+  li{ margin-bottom:6px; font-size:16px; line-height:1.35; }
+  .note{
+    font-size:15px;
+    color:var(--pencil);
+    border-left:3px solid var(--red);
+    padding-left:8px;
+    margin-top:8px;
+  }
+  .file{
+    font-family:'Kalam', cursive;
+    background:#fff;
+    border:1.5px solid var(--ink);
+    border-radius:4px;
+    padding:0 5px;
+    font-size:14px;
+  }
+
+  .boxes{ display:flex; align-items:center; justify-content:space-between; gap:6px; }
+  .box{
+    border:2px solid var(--ink);
+    border-radius:8px;
+    padding:8px 10px;
+    text-align:center;
+    font-size:15px;
+    background:#fff;
+    flex:1;
+  }
+  .arrow-label{
+    font-size:12px;
+    color:var(--pencil);
+    text-align:center;
+  }
+  svg.arrow{ display:block; margin:0 auto; }
+
+  .flow{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:6px;
+    justify-content:center;
+  }
+  .pill{
+    border:2px solid var(--ink);
+    background:#fff;
+    border-radius:20px;
+    padding:6px 12px;
+    font-size:14px;
+    white-space:nowrap;
+  }
+  .pill.hot{ background:var(--yellow); }
+  .pill.cool{ background:#dff0ee; border-color:var(--teal); }
+
+  .vecspace{
+    width:100%;
+    height:170px;
+    background:#fff;
+    border:2px solid var(--ink);
+    border-radius:10px;
+    position:relative;
+    overflow:hidden;
+  }
+  .dot{
+    width:9px; height:9px; border-radius:50%;
+    background:var(--blue);
+    position:absolute;
+  }
+  .dot.hit{ background:var(--red); width:11px; height:11px; }
+  .dot.query{ background:var(--purple); width:13px; height:13px; }
+  .circle{
+    position:absolute;
+    border:2px dashed var(--red);
+    border-radius:50%;
+    width:110px; height:110px;
+    top:40px; left:70px;
+  }
+  .footer-strip{
+    background:var(--ink);
+    color:var(--paper);
+    border-radius:16px;
+    padding:20px 24px;
+    margin-top:6px;
+  }
+  .footer-strip h2{
+    font-family:'Caveat', cursive;
+    font-size:30px;
+    margin:0 0 10px;
+    color:var(--yellow);
+  }
+  .footer-flow{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:8px;
+  }
+  .footer-flow .pill{
+    background:transparent;
+    border-color:var(--paper);
+    color:var(--paper);
+  }
+  .footer-flow .pill.hot{ background:var(--yellow); color:var(--ink); border-color:var(--yellow); }
+  .footer-note{
+    font-size:14px;
+    color:#d8d2bf;
+    margin-top:10px;
+  }
+  .scribble{
+    position:absolute;
+    font-family:'Caveat', cursive;
+    font-size:15px;
+    color:var(--red);
+  }
+
+  .card.expert{
+    background:#eee6f4;
+    border-color:var(--purple);
+  }
+  .card.expert h2{ border-bottom-color:var(--purple); }
+  .card.expert .tag{ background:#d9c8ef; }
+  .card.expert .diagram{ border-color:var(--purple); background:#f7f2fc; }
+  .card.expert .note{ border-left-color:var(--purple); }
+  .section-label{
+    font-family:'Caveat', cursive;
+    font-size:30px;
+    text-align:center;
+    margin:6px 0 14px;
+    color:var(--purple);
+    transform:rotate(-0.5deg);
+  }
+</style>
+</head>
+<body>
+<div class="poster">
+
+  <div class="title-block">
+    <h1><span>MCP</span> + <span>RAG</span> + <span>Vector&nbsp;DB</span></h1>
+    <p>hand-drawn notes — how stuttgart-mcp-rag is wired together</p>
+  </div>
+
+  <div class="row">
+
+    <!-- MCP SERVER -->
+    <div class="card">
+      <h2>MCP Server <span class="tag">the plumbing</span></h2>
+      <div class="diagram">
+        <div class="boxes">
+          <div class="box">CLIENT<br><small>(has the LLM)</small></div>
+          <div>
+            <svg class="arrow" width="60" height="30"><path d="M2,15 Q30,-5 58,15" stroke="#2b2a28" stroke-width="2" fill="none"/><path d="M52,9 L58,15 L50,17" stroke="#2b2a28" stroke-width="2" fill="none"/></svg>
+            <div class="arrow-label">JSON-RPC / stdio</div>
+            <svg class="arrow" width="60" height="30"><path d="M58,15 Q30,32 2,15" stroke="#2b2a28" stroke-width="2" fill="none"/><path d="M8,9 L2,15 L10,17" stroke="#2b2a28" stroke-width="2" fill="none"/></svg>
+          </div>
+          <div class="box">SERVER<br><small>(runs tools)</small></div>
+        </div>
+      </div>
+      <ul>
+        <li><b>Server = dumb executor.</b> It never talks to the LLM — it just runs whatever python function is registered.</li>
+        <li><code>@mcp.tool()</code> reads the function's type hints + docstring → auto-builds a JSON Schema for it.</li>
+        <li><b>Client = the brain.</b> It owns the LLM call and decides <i>which</i> tool (if any) to invoke.</li>
+        <li>Handshake: <code>initialize()</code> → <code>list_tools()</code> → (LLM picks) → <code>call_tool()</code>.</li>
+      </ul>
+      <div class="note">In this repo: <span class="file">chat.py</span> spawns <span class="file">server.py</span> as a subprocess over stdio, on every run — it's not a daemon.</div>
+    </div>
+
+    <!-- RAG -->
+    <div class="card">
+      <h2>RAG <span class="tag">retrieval-augmented gen</span></h2>
+      <div class="diagram">
+        <div class="flow">
+          <div class="pill hot">your question</div>
+          <div class="pill">embed →</div>
+          <div class="pill cool">search vector DB</div>
+          <div class="pill">top-k chunks →</div>
+          <div class="pill hot">stuffed into prompt</div>
+          <div class="pill">LLM →</div>
+          <div class="pill hot">answer</div>
+        </div>
+      </div>
+      <ul>
+        <li><b>Why?</b> The LLM doesn't know your private docs — RAG hands it the relevant slice at request time instead of retraining it.</li>
+        <li>Retrieval is <i>approximate</i>: top-k "most similar," not guaranteed complete or ordered.</li>
+        <li>Chunking matters — split docs sensibly (by heading, not blindly by char count) or you fragment meaning.</li>
+        <li>"Augmented" = the tool result gets appended to the message history before the 2nd LLM call.</li>
+      </ul>
+      <div class="note">In this repo: <span class="file">search_bureaucracy_docs</span> = RAG tool. <span class="file">get_procedure_checklist</span> = exact lookup, skips RAG entirely (needs completeness, not "similar").</div>
+    </div>
+
+    <!-- VECTOR DB -->
+    <div class="card">
+      <h2>Vector DB <span class="tag">meaning as coordinates</span></h2>
+      <div class="diagram">
+        <div class="vecspace">
+          <div class="circle"></div>
+          <div class="dot query" style="top:70px;left:110px;"></div>
+          <div class="dot hit" style="top:55px;left:150px;"></div>
+          <div class="dot hit" style="top:95px;left:90px;"></div>
+          <div class="dot hit" style="top:110px;left:145px;"></div>
+          <div class="dot" style="top:20px;left:15px;"></div>
+          <div class="dot" style="top:140px;left:230px;"></div>
+          <div class="dot" style="top:30px;left:250px;"></div>
+          <div class="dot" style="top:150px;left:20px;"></div>
+          <div class="scribble" style="top:8px;left:280px;">closer = more similar</div>
+          <div class="scribble" style="top:135px;left:150px;">↑ top-k neighbors</div>
+        </div>
+      </div>
+      <ul>
+        <li>Embedding = text → list of floats (a point in high-dim space). Similar meaning ≈ nearby points.</li>
+        <li>Vector DB indexes those points for fast "nearest neighbor" search (cosine similarity here).</li>
+        <li>Stores the vector <i>and</i> a payload (metadata: title, section, source URL) alongside it.</li>
+        <li>Query = embed the question the same way → search → get the closest stored chunks.</li>
+      </ul>
+      <div class="note">In this repo: <span class="file">embeddings.py</span> (SentenceTransformer, all-MiniLM-L6-v2, 384-dim) + <span class="file">vectorstore.py</span> (Qdrant, collection <code>stuttgart_bureaucracy</code>).</div>
+    </div>
+
+  </div>
+
+  <div class="section-label">— now the expert-level stuff —</div>
+
+  <div class="row">
+
+    <!-- MCP EXPERT -->
+    <div class="card expert">
+      <h2>MCP <span class="tag">protocol internals</span></h2>
+      <ul>
+        <li>Transport is JSON-RPC 2.0. Three shapes: <b>stdio</b> (subprocess, implicit trust — no auth needed, this repo's case), <b>SSE</b> (legacy remote), <b>Streamable HTTP</b> (current remote transport, supports resumable sessions).</li>
+        <li><code>initialize()</code> is a <b>capability negotiation</b>, not just a ping: client/server each declare what they support — tools, resources, prompts, <b>sampling</b>, <b>roots</b>, <b>elicitation</b> — and only the intersection is usable.</li>
+        <li><b>Sampling</b> inverts control: a server can ask the <i>client's</i> LLM to generate a completion mid-tool-call (e.g. to summarize before returning). Not used here — this server only returns data, never calls back.</li>
+        <li><b>Elicitation</b>: server can pause a tool call and ask the client to prompt the user for missing input (e.g. "which semester?") before continuing.</li>
+        <li>Tools can carry <b>annotations</b> (<code>readOnlyHint</code>, <code>destructiveHint</code>, <code>idempotentHint</code>) so a client can auto-approve safe calls and gate risky ones — worth adding here since both tools are read-only.</li>
+        <li>Long tool calls support <b>progress notifications</b> and <b>cancellation</b>; resources support <b>subscribe/notify</b> on change.</li>
+        <li><b>Security:</b> tool descriptions are untrusted input to the LLM's context — a malicious/compromised server can smuggle instructions into a docstring ("tool poisoning" / rug-pull updates). Treat third-party MCP servers like you'd treat an unvetted dependency.</li>
+        <li>Remote (HTTP) servers authenticate via OAuth 2.1; the installed SDK (<span class="file">mcp&gt;=2.0.0</span>) also ships <code>RequestStateSecurity</code>/<code>AESGCMRequestStateCodec</code> for encrypted per-request state — irrelevant for a local stdio server like this one.</li>
+      </ul>
+    </div>
+
+    <!-- RAG EXPERT -->
+    <div class="card expert">
+      <h2>RAG <span class="tag">production patterns</span></h2>
+      <ul>
+        <li><b>Hybrid search:</b> combine dense (embedding) + sparse (BM25/keyword) retrieval, fuse with Reciprocal Rank Fusion — catches exact terms (form names, office names) that embeddings blur. This repo is dense-only.</li>
+        <li><b>Reranking:</b> two-stage retrieval — cheap ANN search pulls top-50, a cross-encoder reranks to the true top-k. Higher precision than raw cosine similarity, at extra latency cost.</li>
+        <li><b>Query transformation:</b> HyDE (embed a hypothetical answer instead of the raw query), query rewriting/expansion, or multi-query fan-out — helps when the user's phrasing doesn't match the doc's phrasing.</li>
+        <li><b>Contextual chunking:</b> prepend a short LLM-generated summary of surrounding context to each chunk before embedding (Anthropic's "contextual retrieval") — mitigates chunks losing meaning in isolation.</li>
+        <li><b>Failure modes to know:</b> lost-in-the-middle (LLM under-attends to context stuffed mid-prompt), plausible-but-wrong chunk retrieval, stale index vs. source drift, chunk boundaries cutting a fact in half.</li>
+        <li><b>Evaluation:</b> recall@k / MRR for the retriever, faithfulness & context-precision (RAGAS-style) for the generated answer — not "does it look right," measured.</li>
+        <li><b>Agentic vs. naive RAG:</b> this project already does the better pattern — retrieval is a tool the LLM chooses to call, not context force-injected every turn.</li>
+      </ul>
+    </div>
+
+    <!-- VECTOR DB EXPERT -->
+    <div class="card expert">
+      <h2>Vector DB <span class="tag">index internals</span></h2>
+      <ul>
+        <li><b>HNSW</b> (Hierarchical Navigable Small World) is Qdrant's default index — a multi-layer proximity graph. Key knobs: <code>m</code> (edges/node), <code>ef_construct</code> (build-time search width), <code>ef_search</code> (query-time width) — all trade recall for latency/memory.</li>
+        <li>Alternatives: <b>IVF</b> (cluster-then-search, used by FAISS/Milvus), <b>product/scalar quantization</b> to compress vectors in memory at some recall cost — matters once you're past ~millions of points, not at this repo's scale (a few dozen chunks).</li>
+        <li>Cosine vs dot-product vs Euclidean: if vectors are <b>L2-normalized</b> (this repo's <code>embed_texts(..., normalize_embeddings=True)</code>), cosine similarity and dot product become equivalent — dot product is cheaper to compute.</li>
+        <li><b>Filtering:</b> combine metadata filters (topic, date) with vector search — pre-filter (restrict candidates first) vs post-filter (search then discard) changes both recall and speed. Payload here (<code>title</code>, <code>section</code>, <code>source</code>) is stored but never filtered on.</li>
+        <li><b>Zero-downtime reindex:</b> production pattern is build a new collection, then swap a <b>collection alias</b>. This repo's <code>ensure_collection()</code> does delete-then-recreate — fine at dev scale, but is a brief window of zero results if it ran against live traffic.</li>
+        <li><b>Named/multi-vectors:</b> a single point can hold several vectors (e.g. dense + sparse, or one per field) for hybrid search — this repo stores exactly one dense vector per chunk.</li>
+        <li>Durability: WAL + periodic snapshots for backup/recovery — relevant once <span class="file">qdrant_storage/</span> holds something you can't just regenerate from <span class="file">data/docs/</span>.</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <div class="footer-strip">
+    <h2>...and how it actually runs in this project</h2>
+    <div class="footer-flow">
+      <div class="pill hot">terminal input</div>
+      <div class="pill">→</div>
+      <div class="pill">chat.py / chat-anthropic.py</div>
+      <div class="pill">→ LLM picks tool →</div>
+      <div class="pill hot">server.py (MCP)</div>
+      <div class="pill">→</div>
+      <div class="pill cool">embeddings.py</div>
+      <div class="pill">→</div>
+      <div class="pill cool">vectorstore.py</div>
+      <div class="pill">→</div>
+      <div class="pill hot">Qdrant</div>
+      <div class="pill">→ chunks back →</div>
+      <div class="pill">LLM synthesizes</div>
+      <div class="pill">→</div>
+      <div class="pill hot">printed answer</div>
+    </div>
+    <div class="footer-note">Offline, separately: <span class="file" style="background:#3a3937;color:#f2c14e;border-color:#f2c14e;">ingest.py</span> chunks <span class="file" style="background:#3a3937;color:#f2c14e;border-color:#f2c14e;">data/docs/*.md</span> → embeds → upserts into Qdrant. That's not part of the live request path.</div>
+  </div>
+
+</div>
+</body>
+</html>

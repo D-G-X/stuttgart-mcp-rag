@@ -109,8 +109,52 @@ You'll do Path A first to validate retrieval quality quickly, then Path B to und
 - Tune chunking/top-k based on real questions that go wrong.
 - Add source citations clearly in responses (this matters a lot for bureaucratic trust — wrong info about visas has real consequences, so always cite and encourage the user to verify with the official office).
 
-### Phase 7 — Scraping (later, separate planning pass)
-- Once the hand-picked prototype works well, plan a scraper for official sources (Stuttgart city site, Ausländerbehörde, university International Office) with a refresh/re-ingestion pipeline. Will need attention to site ToS, change detection, and re-embedding on updates. We'll plan this in detail once Phase 6 is solid — no need to design it now.
+### Phase 7 — Scraping & refresh pipeline
+
+Goal: replace the hand-picked `data/docs/*.md` corpus with an automated,
+periodically-refreshed pipeline over official sources, without regressing
+the retrieval quality Phase 6 achieved. Bureaucratic info being wrong has
+real consequences, so publishing is risk-based: changes that pass automated
+sanity checks go live automatically, anomalies get held for review.
+
+**7.1 — Source inventory & legal check**
+- Scope is allowed to grow organically, not gated to the current 6 topics — as new relevant pages on `stuttgart.de` / `uni-stuttgart.de` are found (more offices, more procedures), add them to the source list rather than waiting for a separate expansion phase.
+- Check `robots.txt` and ToS for each domain before writing a fetcher against it. Note any crawl-rate or caching requirements.
+
+**7.2 — Fetch layer**
+- Plain `requests`/`httpx` GET, polite `User-Agent`, rate-limited (e.g. 1 req/sec) with exponential backoff on errors. These are static government pages — verify none need JS rendering before reaching for Playwright.
+- Persist raw HTML snapshots (e.g. `data/raw/<page>/<date>.html`) before any extraction. Never scrape straight into chunks — keep the source for auditing and re-processing if extraction logic changes later.
+
+**7.3 — Extraction & normalization**
+- HTML → clean text via `trafilatura` or `readability-lxml`, plus manual boilerplate rules (nav/footer/cookie banners).
+- Reuse `chunking.py`'s existing contract rather than rewriting it: emit the same frontmatter fields (`title`, `topic`, `source`, `last_checked`) and `## heading`-delimited sections `HEADING_RE`/`parse_doc()` already expect, so `chunk_corpus()` keeps working unmodified on scraped output.
+
+**7.4 — Change detection & review gate**
+- Store a content hash per page/section alongside `last_checked`.
+- Each scrape run: unchanged hash → skip re-embedding (saves compute, and keeps `vectorstore.py`'s stable `uuid5(title|section)` chunk IDs from churning).
+- Changed hash → run automated sanity checks on the new extraction: expected headings still present, extracted text length within normal bounds for that page, source URL still resolves, and the Phase 7.7 fixed-question regression check still retrieves it correctly. Checks pass → auto-publish (upsert straight to the live collection). Any check fails → hold in a review queue (diff shown, not applied) instead of auto-publishing.
+- This keeps freshness automatic for the common case (routine content edits) while bounding risk to actual anomalies (site redesign, page removed, extraction broke) — a strict "always hold for manual review" gate tends to rot unreviewed on a solo project and defeats the point of scraping.
+
+**7.5 — Re-ingestion pipeline**
+- Extend `ingest.py` (or a new `scrape_ingest.py`) with: fetch → extract → diff-check → chunk → embed → upsert only new/changed chunks.
+- `vectorstore.ensure_collection()` currently deletes and rebuilds the whole collection on every run — fine for a manual full-corpus reload, but wrong for incremental scraped updates (it would wipe everything each run). Switch scraped ingestion to targeted `upsert` + explicit delete of removed sections instead of full rebuild.
+- If rebuild-triggered downtime ever matters in practice, revisit with a collection-alias blue-green swap (build new collection, swap alias, drop old).
+
+**7.6 — Scheduling**
+- Local scheduler for now (e.g. cron on your machine) — weekly cadence is reasonable for government pages. Revisit a hosted/CI scheduler only if this needs to run somewhere other than your machine.
+- Fail loudly on scrape errors (404, blocked, changed page structure) rather than silently continuing to serve stale data.
+
+**7.7 — Validation**
+- Keep a small fixed set of test questions and expected source pages; after each ingest run, use `query.py` to confirm retrieval still surfaces the right sources. Catches silent extraction regressions (e.g. a site redesign breaking the boilerplate-stripping rules) before they reach the live tool.
+
+**7.8 — Rollout**
+- Run the scraped pipeline into a separate Qdrant collection first and compare retrieval quality against the hand-picked corpus side by side.
+- Cut `server.py` over to the scraped collection only once parity is confirmed; keep the hand-picked docs as a fallback/reference, not deleted.
+
+**Decisions locked in:**
+- Scope: open to grow beyond the current 6 topics as relevant pages are found — no artificial gate to prove out on 6 first.
+- Publishing: risk-based auto-publish with a review gate for anomalies only (see 7.4), not a blanket manual-review-everything policy.
+- Scheduling: local cron for now (see 7.6).
 
 ---
 
