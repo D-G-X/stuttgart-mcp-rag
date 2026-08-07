@@ -1,0 +1,35 @@
+# Phase 7.6 scheduling: weekly refresh of the scraped corpus.
+#
+# cron runs jobs with almost no environment (no PATH, no shell profile
+# sourced), so every path below is absolute rather than relying on `uv` or
+# `python` being found automatically. Update the paths if this project or
+# your uv install ever move.
+#
+# What this runs: scrape_ingest.py -- fetch -> extract -> review gate ->
+# sync into the live `stuttgart_bureaucracy_scraped` Qdrant collection.
+# Qdrant (Docker) must already be running for this to succeed; the job does
+# not start it.
+#
+# This file is NOT auto-installed. To activate it:
+#   crontab crontab.txt          # replaces your entire crontab with this file
+# or, to keep any existing cron jobs you already have:
+#   crontab -l > /tmp/existing_crontab      # back up what you have now
+#   cat crontab.txt >> /tmp/existing_crontab
+#   crontab /tmp/existing_crontab
+#
+# To verify it's installed: crontab -l
+# To remove it later: crontab -e (delete the line) or crontab -r (clears all)
+#
+# Schedule: every Monday at 03:00 -- low-traffic hour, weekly cadence is
+# reasonable for government pages that change infrequently (see PLAN.md
+# Phase 7.6). scrape_review.py's gate still holds anomalous changes for
+# manual review rather than auto-publishing them, so a bad run here can't
+# silently corrupt the live collection -- worst case it holds new content
+# back until you look at data/scraped_review/.
+#
+# Output is appended (not overwritten) to a log file so failures are visible
+# after the fact rather than silently disappearing, per Phase 7.6's "fail
+# loudly on scrape errors" requirement -- cron itself has no other way to
+# surface a failure to you.
+
+0 3 * * 1 cd /Users/dgx/Documents/Projects/mcp/stuttgart-mcp-rag && /opt/homebrew/bin/uv run python scrape_ingest.py >> /Users/dgx/Documents/Projects/mcp/stuttgart-mcp-rag/data/scrape_cron.log 2>&1
