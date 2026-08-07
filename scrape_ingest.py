@@ -35,9 +35,24 @@ from vectorstore import (
 
 
 def _existing_ids_for_source(client: QdrantClient, source_url: str) -> set[str]:
+    """Points for one scraped source URL.
+
+    Filtered on origin as well as source: several hand-picked docs cite the
+    same official URLs the scraper fetches (e.g. 01_anmeldung.md and
+    06_offices.md both cite the stuttgart.de Anmeldung page). Without the
+    origin condition this swept up those hand-picked points, found them
+    absent from the scraped doc's chunk set, and deleted them as "removed
+    sections" -- silently wiping the entire hand-picked half of the shared
+    live collection on every scrape run.
+    """
     ids: set[str] = set()
     offset = None
-    source_filter = Filter(must=[FieldCondition(key="source", match=MatchValue(value=source_url))])
+    source_filter = Filter(
+        must=[
+            FieldCondition(key="source", match=MatchValue(value=source_url)),
+            FieldCondition(key="origin", match=MatchValue(value="scraped")),
+        ]
+    )
     while True:
         points, offset = client.scroll(
             collection_name=SCRAPED_COLLECTION_NAME,
