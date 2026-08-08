@@ -2,14 +2,24 @@ import os
 import uuid
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, PointStruct, VectorParams
+from qdrant_client.models import (
+    Distance,
+    FieldCondition,
+    Filter,
+    MatchValue,
+    PointStruct,
+    VectorParams,
+)
 
 from chunking import Chunk
 from embeddings import EMBEDDING_DIM
 
+# Hand-picked-only collection. Since the Phase 7.8 cutover this is no longer
+# what server.py queries -- it's kept as a rebuildable fallback/reference.
 COLLECTION_NAME = "stuttgart_bureaucracy"
-# Scraped content is evaluated here, isolated from the live collection, until
-# Phase 7.8 confirms retrieval parity and server.py is cut over deliberately.
+# The live collection server.py actually queries. Despite the name it now
+# holds BOTH origins: scraped docs (via scrape_ingest.py) and hand-picked
+# docs (via ingest.py), distinguished by the payload's `origin` field.
 SCRAPED_COLLECTION_NAME = f"{COLLECTION_NAME}_scraped"
 # Fixed namespace so chunk IDs are stable across re-runs (same doc+section -> same id).
 _ID_NAMESPACE = uuid.UUID("12345678-1234-5678-1234-567812345678")
@@ -86,3 +96,67 @@ def upsert_chunks(
         for chunk, vector in zip(chunks, vectors)
     ]
     client.upsert(collection_name=collection_name, points=points)
+
+
+def existing_ids_by_origin(
+    client: QdrantClient, collection_name: str, origin: str
+) -> set[str]:
+    """All point IDs in a collection that came from a given origin.
+
+    Scoped by origin rather than by source URL (which is what
+    scrape_ingest.py filters on) because the two pipelines share this
+    collection: a hand-picked sync must not see -- or delete -- scraped
+    points, and vice versa.
+    """
+    ids: set[str] = set()
+    offset = None
+    origin_filter = Filter(must=[FieldCondition(key="origin", match=MatchValue(value=origin))])
+    while True:
+        points, offset = client.scroll(
+            collection_name=collection_name,
+            scroll_filter=origin_filter,
+            with_payload=False,
+            with_vectors=False,
+            limit=256,
+            offset=offset,
+        )
+        ids.update(str(p.id) for p in points)
+        if offset is None:
+            break
+    return ids
+
+
+def sync_chunks(
+    client: QdrantClient,
+    chunks: list[Chunk],
+    vectors: list[list[float]],
+    collection_name: str,
+    origin: str,
+) -> dict:
+    """Bring one origin's slice of a shared collection in sync with `chunks`.
+
+    Adds new chunks, deletes points whose chunk no longer exists, leaves
+    unchanged ones alone. Used instead of ensure_collection()'s
+    delete-and-rebuild because this collection is shared -- rebuilding it
+    would wipe the other pipeline's points.
+    """
+    existing_ids = existing_ids_by_origin(client, collection_name, origin)
+    new_by_id = {chunk_id(c): c for c in chunks}
+
+    to_add_ids = [cid for cid in new_by_id if cid not in existing_ids]
+    to_delete = existing_ids - set(new_by_id)
+
+    if to_add_ids:
+        id_order = {cid: i for i, cid in enumerate(new_by_id)}
+        add_chunks = [new_by_id[cid] for cid in to_add_ids]
+        add_vectors = [vectors[id_order[cid]] for cid in to_add_ids]
+        upsert_chunks(client, add_chunks, add_vectors, collection_name, origin)
+
+    if to_delete:
+        client.delete(collection_name=collection_name, points_selector=list(to_delete))
+
+    return {
+        "added": len(to_add_ids),
+        "deleted": len(to_delete),
+        "unchanged": len(new_by_id) - len(to_add_ids),
+    }
