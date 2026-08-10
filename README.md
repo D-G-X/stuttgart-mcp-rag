@@ -163,8 +163,7 @@ they lexically outranked the actual registration procedure for queries like
 server.py                  MCP server: registers and implements the two tools
 chat.py                    Terminal chat client using a local Ollama model
 chat-anthropic.py          Terminal chat client using the Anthropic API
-embeddings.py              Local embedding model (sentence-transformers)
-embedding-openai-api.py    Alternate OpenAI-based embedding backend (not wired in)
+embeddings.py              Local embedding model
 vectorstore.py             Qdrant client, collection setup, upsert/sync helpers
 chunking.py                Markdown -> heading-based chunks with metadata
 checklists.py              Hand-curated step-by-step checklists per topic
@@ -178,7 +177,7 @@ scrape_review.py           Auto-publish vs. hold-for-review gate
 scrape_ingest.py           Scraped pipeline: fetch -> extract -> review -> sync
 scrape_compare.py          Side-by-side retrieval comparison across collections
 
-crontab.txt                Reference cron entry for a weekly scrape (not installed)
+crontab.txt                Reference cron entry for a weekly scrape
 PLAN.md                    Phased build plan and design decisions
 
 data/docs/*.md             Hand-picked source documents (frontmatter + sections)
@@ -276,7 +275,7 @@ Type your question at the `You:` prompt; type `exit` or `quit` to leave.
 Note: you don't need to run `server.py` yourself — each chat client spawns
 it automatically as a subprocess over stdio.
 
-### 7. Optional: schedule refreshes
+### 7. Schedule refreshes
 
 `crontab.txt` holds a reference weekly cron entry for `scrape_ingest.py`. It is
 **not installed** — it's a documented starting point. See the comments in that
@@ -297,20 +296,3 @@ documents, fees — so a few things are deliberate:
   `last_checked` reflects when a doc was written or last scraped, not that it is
   currently correct. Hand-picked docs are summaries of official pages, not
   verbatim text — verify anything consequential against the linked source.
-
-## Known gaps
-
-- `get_procedure_checklist` covers five topics (`anmeldung`, `aufenthaltstitel`,
-  `sperrkonto`, `health_insurance`, `university_enrollment`). There is no
-  checklist for the HFT application process, even though its documents are
-  indexed and searchable.
-- The tool only reliably routes to `get_procedure_checklist` when the user says
-  "checklist" — "steps to enroll" goes to semantic search instead. The routing
-  is driven entirely by tool docstrings, with no fallback.
-- Some scraped pages (the study.eu Sperrkonto guide, both HFT pages) have no
-  real `<h2>` structure, so they extract as a single large chunk. Their
-  hand-picked counterparts currently outrank them, so this is latent rather
-  than user-visible.
-- The local 8B model occasionally emits malformed output on the search path
-  (e.g. printing a tool call as plain text instead of making one). This is a
-  model limitation, not a retrieval one; `chat-anthropic.py` does not show it.
